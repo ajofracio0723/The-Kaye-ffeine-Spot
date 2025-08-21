@@ -1,0 +1,264 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { BarChart3, TrendingUp, PhilippinePeso, ShoppingCart, Users, Package } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+
+interface SalesData {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+interface StatsData {
+  totalRevenue: number;
+  totalOrders: number;
+  totalCustomers: number;
+  avgOrderValue: number;
+}
+
+const Reports = () => {
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [stats, setStats] = useState<StatsData>({
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalCustomers: 0,
+    avgOrderValue: 0,
+  });
+  const [period, setPeriod] = useState("7");
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadReportData();
+  }, [period]);
+
+  const loadReportData = async () => {
+    try {
+      setLoading(true);
+      const days = parseInt(period);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Load orders data
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("status", "completed")
+        .gte("created_at", startDate.toISOString());
+
+      if (ordersError) throw ordersError;
+
+      // Load customers count
+      const { count: customersCount, error: customersError } = await supabase
+        .from("customers")
+        .select("*", { count: 'exact', head: true });
+
+      if (customersError) throw customersError;
+
+      // Process sales data by day
+      const salesByDay = new Map<string, { revenue: number; orders: number }>();
+      
+      for (let i = 0; i < days; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        salesByDay.set(dateStr, { revenue: 0, orders: 0 });
+      }
+
+      orders?.forEach(order => {
+        const dateStr = new Date(order.created_at).toISOString().split('T')[0];
+        if (salesByDay.has(dateStr)) {
+          const current = salesByDay.get(dateStr)!;
+          salesByDay.set(dateStr, {
+            revenue: current.revenue + parseFloat(order.total.toString()),
+            orders: current.orders + 1,
+          });
+        }
+      });
+
+      const chartData = Array.from(salesByDay.entries())
+        .map(([date, data]) => ({
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          revenue: data.revenue,
+          orders: data.orders,
+        }))
+        .reverse();
+
+      setSalesData(chartData);
+
+      // Calculate stats
+      const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total.toString()), 0) || 0;
+      const totalOrders = orders?.length || 0;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      setStats({
+        totalRevenue,
+        totalOrders,
+        totalCustomers: customersCount || 0,
+        avgOrderValue,
+      });
+
+    } catch (error) {
+      console.error("Error loading report data:", error);
+      toast({
+        title: "Error loading reports",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Sales Reports</h1>
+          <p className="text-muted-foreground">Track your business performance and analytics</p>
+        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Last 7 days</SelectItem>
+            <SelectItem value="30">Last 30 days</SelectItem>
+            <SelectItem value="90">Last 90 days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <PhilippinePeso className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₱{stats.totalRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              Last {period} days
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              Completed orders
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₱{stats.avgOrderValue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              Per order average
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+            <p className="text-xs text-muted-foreground">
+              Registered customers
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts */}
+      <Tabs defaultValue="revenue" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="revenue">Revenue Trend</TabsTrigger>
+          <TabsTrigger value="orders">Orders Trend</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="revenue">
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Revenue</CardTitle>
+              <CardDescription>
+                Revenue trend for the last {period} days
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={salesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, 'Revenue']} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    dot={{ fill: "hsl(var(--primary))" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Orders</CardTitle>
+              <CardDescription>
+                Number of orders per day for the last {period} days
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={salesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [value, 'Orders']} />
+                  <Bar 
+                    dataKey="orders" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default Reports;
