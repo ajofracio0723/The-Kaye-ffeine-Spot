@@ -132,12 +132,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-primary mb-2">☕ The Kaye-ffeine Spot</h1>
-          <p className="text-muted-foreground">Point of Sale System</p>
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Products Section */}
           <div className="lg:col-span-3">

@@ -3,12 +3,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Coffee } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandLogo";
 import { useToast } from "@/hooks/use-toast";
 import { Navigate } from "react-router-dom";
+
+const fieldClassName =
+  "bg-white text-black caret-black placeholder:text-neutral-500";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -83,14 +86,13 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-accent/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-2">
-          <div className="flex justify-center">
-            <Coffee className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">The Kaye-ffeine Spot</CardTitle>
-          <CardDescription>Staff Login Portal</CardDescription>
+    <div className="min-h-screen flex items-center justify-center bg-[hsl(30_25%_8%)] p-4">
+      <Card className="w-full max-w-md border-[#c4a574]/25 bg-[hsl(30_20%_11%)] text-[#f3e6d4] shadow-2xl">
+        <CardHeader className="text-center space-y-4 pb-2">
+          <BrandMark size="hero" tone="light" />
+          <CardDescription className="text-[#c4a574]/80 tracking-[0.2em] uppercase text-xs">
+            Staff Login Portal
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -109,6 +111,7 @@ const Auth = () => {
                     name="email"
                     type="email"
                     placeholder="Enter your email"
+                    className={fieldClassName}
                     required
                   />
                 </div>
@@ -119,6 +122,7 @@ const Auth = () => {
                     name="password"
                     type="password"
                     placeholder="Enter your password"
+                    className={fieldClassName}
                     required
                   />
                 </div>
@@ -137,6 +141,7 @@ const Auth = () => {
                     name="fullName"
                     type="text"
                     placeholder="Enter your full name"
+                    className={fieldClassName}
                     required
                   />
                 </div>
@@ -147,6 +152,7 @@ const Auth = () => {
                     name="email"
                     type="email"
                     placeholder="Enter your email"
+                    className={fieldClassName}
                     required
                   />
                 </div>
@@ -157,6 +163,7 @@ const Auth = () => {
                     name="password"
                     type="password"
                     placeholder="Enter your password (min. 6 characters)"
+                    className={fieldClassName}
                     required
                     minLength={6}
                   />
@@ -164,7 +171,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="signup-role">Role</Label>
                   <Select name="role" defaultValue="staff">
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClassName}>
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -182,10 +189,10 @@ const Auth = () => {
         </CardContent>
 
         <CardFooter className="text-center flex-col gap-1">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[#c4a574]/80">
             Default admin: admin@kaye.com / admin123
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[#c4a574]/60">
             All data is stored locally in this browser.
           </p>
         </CardFooter>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/brand/BrandLogo";
 
 const mainItems = [
   { title: "POS", url: "/", icon: Coffee },
@@ -42,8 +43,8 @@ export function AppSidebar() {
   };
 
   const getNavClass = (path: string) =>
-    isActive(path) 
-      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+    isActive(path)
+      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
       : "hover:bg-sidebar-accent/50";
 
   const isCollapsed = state === "collapsed";
@@ -51,15 +52,15 @@ export function AppSidebar() {
   return (
     <Sidebar className={isCollapsed ? "w-16" : "w-64"}>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-2">
-          <Coffee className="h-6 w-6 text-sidebar-primary" />
-          {!isCollapsed && (
-            <div>
-              <h2 className="font-bold text-lg">Kaye-ffeine</h2>
-              <p className="text-xs text-sidebar-foreground/70">POS System</p>
-            </div>
-          )}
-        </div>
+        {isCollapsed ? (
+          <div className="flex justify-center text-[#c4a574]" aria-label="The Kaye-ffeine Spot">
+            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="currentColor" aria-hidden>
+              <ellipse cx="12" cy="12" rx="7" ry="10" />
+            </svg>
+          </div>
+        ) : (
+          <BrandMark size="sm" tone="light" className="w-full" />
+        )}
       </SidebarHeader>
 
       <SidebarContent>
@@ -81,7 +82,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {profile?.role === 'admin' && (
+        {profile?.role === "admin" && (
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -109,22 +110,22 @@ export function AppSidebar() {
               <p className="font-medium">{profile?.full_name}</p>
               <p className="text-sidebar-foreground/70 capitalize">{profile?.role}</p>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={signOut}
-              className="w-full text-xs"
+              className="w-full text-xs bg-white text-black hover:bg-neutral-100 hover:text-black border-white"
             >
               <LogOut className="h-3 w-3 mr-2" />
               Sign Out
             </Button>
           </div>
         ) : (
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={signOut}
-            className="w-full p-2"
+            className="w-full p-2 bg-white text-black hover:bg-neutral-100 hover:text-black border-white"
           >
             <LogOut className="h-4 w-4" />
           </Button>
