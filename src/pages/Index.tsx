@@ -3,7 +3,7 @@ import { ProductCard } from "@/components/pos/ProductCard";
 import { CategoryTabs } from "@/components/pos/CategoryTabs";
 import { Cart } from "@/components/pos/Cart";
 import { CheckoutDialog } from "@/components/pos/CheckoutDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { getCategories, getProducts } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 
 interface Product {
@@ -42,18 +42,10 @@ const Index = () => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = () => {
     try {
-      const [productsResult, categoriesResult] = await Promise.all([
-        supabase.from("products").select("*"),
-        supabase.from("categories").select("*")
-      ]);
-
-      if (productsResult.error) throw productsResult.error;
-      if (categoriesResult.error) throw categoriesResult.error;
-
-      setProducts(productsResult.data || []);
-      setCategories(categoriesResult.data || []);
+      setProducts(getProducts());
+      setCategories(getCategories());
     } catch (error) {
       console.error("Error loading data:", error);
       toast({

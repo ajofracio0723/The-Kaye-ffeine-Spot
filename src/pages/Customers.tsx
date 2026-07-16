@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { createCustomer, getCustomers, updateCustomer } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/useSettings";
 import { Plus, Edit, Users, Phone, Mail, MapPin, Star } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,20 +29,15 @@ const Customers = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { format } = useSettings();
 
   useEffect(() => {
     loadCustomers();
   }, []);
 
-  const loadCustomers = async () => {
+  const loadCustomers = () => {
     try {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .order("name");
-
-      if (error) throw error;
-      setCustomers(data || []);
+      setCustomers(getCustomers());
     } catch (error) {
       console.error("Error loading customers:", error);
       toast({
@@ -54,35 +50,23 @@ const Customers = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     
     const customerData = {
       name: formData.get("name") as string,
-      email: formData.get("email") as string || null,
-      phone: formData.get("phone") as string || null,
-      address: formData.get("address") as string || null,
+      email: (formData.get("email") as string) || null,
+      phone: (formData.get("phone") as string) || null,
+      address: (formData.get("address") as string) || null,
     };
 
     try {
-      let result;
       if (editingCustomer) {
-        result = await supabase
-          .from("customers")
-          .update(customerData)
-          .eq("id", editingCustomer.id)
-          .select()
-          .single();
+        updateCustomer(editingCustomer.id, customerData);
       } else {
-        result = await supabase
-          .from("customers")
-          .insert(customerData)
-          .select()
-          .single();
+        createCustomer(customerData);
       }
-
-      if (result.error) throw result.error;
 
       toast({
         title: editingCustomer ? "Customer updated" : "Customer created",
@@ -257,7 +241,7 @@ const Customers = () => {
                       <div className="text-xs text-muted-foreground">Orders</div>
                     </div>
                     <div>
-                      <div className="text-lg font-bold">₱{customer.total_spent.toFixed(0)}</div>
+                      <div className="text-lg font-bold">{format(customer.total_spent, 0)}</div>
                       <div className="text-xs text-muted-foreground">Spent</div>
                     </div>
                     <div>

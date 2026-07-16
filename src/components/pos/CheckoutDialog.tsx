@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useSettings } from "@/hooks/useSettings";
+import { createOrder } from "@/lib/storage";
 
 interface CartItem {
   id: string;
@@ -26,9 +27,10 @@ export const CheckoutDialog = ({ isOpen, onClose, items, onOrderComplete }: Chec
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { format, taxRate } = useSettings();
 
-  const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.08;
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax;
 
   const handleSubmitOrder = async () => {
@@ -44,40 +46,27 @@ export const CheckoutDialog = ({ isOpen, onClose, items, onOrderComplete }: Chec
     setIsProcessing(true);
 
     try {
-      // Generate order number
       const orderNumber = `ORD-${Date.now()}`;
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
+      createOrder(
+        {
           order_number: orderNumber,
           customer_name: customerName,
-          subtotal: subtotal,
-          tax: tax,
-          total: total,
+          customer_id: null,
+          served_by: null,
+          subtotal,
+          tax,
+          total,
           payment_method: paymentMethod,
-          status: 'completed'
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = items.map(item => ({
-        order_id: order.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
+          status: "completed",
+        },
+        items.map((item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
+        }))
+      );
 
       toast({
         title: "Order completed!",
@@ -135,15 +124,15 @@ export const CheckoutDialog = ({ isOpen, onClose, items, onOrderComplete }: Chec
           <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
             <div className="flex justify-between text-sm">
               <span>Subtotal:</span>
-              <span>₱{subtotal.toFixed(2)}</span>
+              <span>{format(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Tax (8%):</span>
-              <span>₱{tax.toFixed(2)}</span>
+              <span>Tax ({taxRate}%):</span>
+              <span>{format(tax)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Total:</span>
-              <span>₱{total.toFixed(2)}</span>
+              <span>{format(total)}</span>
             </div>
           </div>
 

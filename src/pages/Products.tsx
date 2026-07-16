@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { createProduct, getCategories, getProducts, updateProduct } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/useSettings";
 import { Plus, Edit, ImagePlus, X, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,27 +39,16 @@ const Products = () => {
   const [processingImage, setProcessingImage] = useState(false);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const { toast } = useToast();
+  const { format, currencySymbol } = useSettings();
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = () => {
     try {
-      // Only select the fields we need, explicitly excluding stock_quantity and low_stock_threshold
-      const [productsResult, categoriesResult] = await Promise.all([
-        supabase
-          .from("products")
-          .select("id, name, description, price, is_available, category_id, image_url, created_at, updated_at")
-          .order("name"),
-        supabase.from("categories").select("*").order("name")
-      ]);
-
-      if (productsResult.error) throw productsResult.error;
-      if (categoriesResult.error) throw categoriesResult.error;
-
-      setProducts(productsResult.data || []);
-      setCategories(categoriesResult.data || []);
+      setProducts(getProducts());
+      setCategories(getCategories());
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
@@ -202,45 +192,28 @@ const Products = () => {
         finalImageUrl = imagePreview;
       }
 
-      // Prepare product data - only include fields we want to update
       const productData = {
         name: name,
-        description: formData.get("description") as string || null,
+        description: (formData.get("description") as string) || null,
         price: price,
         category_id: (formData.get("category_id") as string) || null,
         is_available: (formData.get("is_available") as string) === "true",
         image_url: finalImageUrl,
       };
 
-      let result;
       if (editingProduct) {
-        // Update existing product
-        result = await supabase
-          .from("products")
-          .update(productData)
-          .eq("id", editingProduct.id)
-          .select()
-          .single();
+        updateProduct(editingProduct.id, productData);
       } else {
-        // Insert new product
-        result = await supabase
-          .from("products")
-          .insert(productData)
-          .select()
-          .single();
+        createProduct(productData);
       }
-
-      if (result.error) throw result.error;
 
       toast({
         title: editingProduct ? "Product updated" : "Product created",
         description: `${productData.name} has been ${editingProduct ? "updated" : "added"} successfully!`,
       });
 
-      // Reload data to get the latest from database
-      await loadData();
+      loadData();
       
-      // Close dialog and reset form
       setIsDialogOpen(false);
       setEditingProduct(null);
       setSelectedImage(null);
@@ -393,7 +366,7 @@ const Products = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (₱)</Label>
+                  <Label htmlFor="price">Price ({currencySymbol})</Label>
                   <Input
                     id="price"
                     name="price"
@@ -494,7 +467,7 @@ const Products = () => {
                   </CardDescription>
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <span className="font-bold text-lg text-primary">₱{product.price.toFixed(2)}</span>
+                  <span className="font-bold text-lg text-primary">{format(product.price)}</span>
                   {!product.is_available && (
                     <Badge variant="destructive" className="text-xs">
                       Out of Stock

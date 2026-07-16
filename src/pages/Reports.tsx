@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { getCompletedOrdersSince, getCustomerCount } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, TrendingUp, PhilippinePeso, ShoppingCart, Users, Package } from "lucide-react";
+import { useSettings } from "@/hooks/useSettings";
+import { TrendingUp, ShoppingCart, Users } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 
 interface SalesData {
@@ -31,35 +32,22 @@ const Reports = () => {
   const [period, setPeriod] = useState("7");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { format, currencySymbol } = useSettings();
 
   useEffect(() => {
     loadReportData();
   }, [period]);
 
-  const loadReportData = async () => {
+  const loadReportData = () => {
     try {
       setLoading(true);
       const days = parseInt(period);
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      // Load orders data
-      const { data: orders, error: ordersError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("status", "completed")
-        .gte("created_at", startDate.toISOString());
+      const orders = getCompletedOrdersSince(startDate);
+      const customersCount = getCustomerCount();
 
-      if (ordersError) throw ordersError;
-
-      // Load customers count
-      const { count: customersCount, error: customersError } = await supabase
-        .from("customers")
-        .select("*", { count: 'exact', head: true });
-
-      if (customersError) throw customersError;
-
-      // Process sales data by day
       const salesByDay = new Map<string, { revenue: number; orders: number }>();
       
       for (let i = 0; i < days; i++) {
@@ -69,12 +57,12 @@ const Reports = () => {
         salesByDay.set(dateStr, { revenue: 0, orders: 0 });
       }
 
-      orders?.forEach(order => {
+      orders.forEach(order => {
         const dateStr = new Date(order.created_at).toISOString().split('T')[0];
         if (salesByDay.has(dateStr)) {
           const current = salesByDay.get(dateStr)!;
           salesByDay.set(dateStr, {
-            revenue: current.revenue + parseFloat(order.total.toString()),
+            revenue: current.revenue + Number(order.total),
             orders: current.orders + 1,
           });
         }
@@ -90,15 +78,14 @@ const Reports = () => {
 
       setSalesData(chartData);
 
-      // Calculate stats
-      const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total.toString()), 0) || 0;
-      const totalOrders = orders?.length || 0;
+      const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total), 0);
+      const totalOrders = orders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
       setStats({
         totalRevenue,
         totalOrders,
-        totalCustomers: customersCount || 0,
+        totalCustomers: customersCount,
         avgOrderValue,
       });
 
@@ -146,10 +133,10 @@ const Reports = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <PhilippinePeso className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground text-sm font-medium">{currencySymbol}</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱{stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{format(stats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
               Last {period} days
             </p>
@@ -175,7 +162,7 @@ const Reports = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱{stats.avgOrderValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{format(stats.avgOrderValue)}</div>
             <p className="text-xs text-muted-foreground">
               Per order average
             </p>
@@ -217,7 +204,7 @@ const Reports = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`₱${Number(value).toFixed(2)}`, 'Revenue']} />
+                  <Tooltip formatter={(value) => [format(Number(value)), "Revenue"]} />
                   <Line 
                     type="monotone" 
                     dataKey="revenue" 

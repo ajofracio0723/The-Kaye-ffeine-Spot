@@ -76,7 +76,7 @@ const Auth = () => {
     } else {
       toast({
         title: "Account created!",
-        description: "Please check your email to verify your account.",
+        description: "You can now use the POS system.",
       });
     }
     setIsLoading(false);
@@ -181,9 +181,12 @@ const Auth = () => {
           </Tabs>
         </CardContent>
 
-        <CardFooter className="text-center">
+        <CardFooter className="text-center flex-col gap-1">
           <p className="text-xs text-muted-foreground">
-            Contact your manager for account setup assistance.
+            Default admin: admin@kaye.com / admin123
+          </p>
+          <p className="text-xs text-muted-foreground">
+            All data is stored locally in this browser.
           </p>
         </CardFooter>
       </Card>

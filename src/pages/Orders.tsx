@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
+import { getOrderById, getOrderItems, getOrders, updateOrderStatus as saveOrderStatus } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/useSettings";
 import { Eye, Clock, CheckCircle, XCircle, User, Calendar, DollarSign, Hash } from "lucide-react";
 
 interface OrderItem {
@@ -37,20 +38,18 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const { toast } = useToast();
+  const { format } = useSettings();
 
   useEffect(() => {
     loadOrders();
   }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = () => {
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
+      setOrders(getOrders().map((order) => ({
+        ...order,
+        customer_name: order.customer_name || "Guest",
+      })));
     } catch (error) {
       console.error("Error loading orders:", error);
       toast({
@@ -63,63 +62,19 @@ const Orders = () => {
     }
   };
 
-  const loadOrderDetails = async (orderId: string) => {
+  const loadOrderDetails = (orderId: string) => {
     setLoadingDetails(true);
     try {
-      // Load order details
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", orderId)
-        .single();
+      const orderData = getOrderById(orderId);
+      if (!orderData) throw new Error("Order not found");
 
-      if (orderError) throw orderError;
+      const itemsWithNames = getOrderItems(orderId);
 
-      // Load order items
-      const { data: orderItems, error: itemsError } = await supabase
-        .from("order_items")
-        .select(`
-          id,
-          product_id,
-          quantity,
-          unit_price,
-          total_price,
-          products (
-            name
-          )
-        `)
-        .eq("order_id", orderId);
-
-      if (itemsError) {
-        console.error("Error loading order items:", itemsError);
-        // If there's no products table relation, just get the items without product names
-        const { data: simpleItems, error: simpleError } = await supabase
-          .from("order_items")
-          .select("*")
-          .eq("order_id", orderId);
-        
-        if (simpleError) throw simpleError;
-        
-        setSelectedOrder({
-          ...orderData,
-          items: simpleItems || []
-        });
-      } else {
-        // Map the items to include product names
-        const itemsWithNames = orderItems?.map(item => ({
-          id: item.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-          product_name: item.products?.name || `Product ID: ${item.product_id}`
-        })) || [];
-
-        setSelectedOrder({
-          ...orderData,
-          items: itemsWithNames
-        });
-      }
+      setSelectedOrder({
+        ...orderData,
+        customer_name: orderData.customer_name || "Guest",
+        items: itemsWithNames,
+      });
     } catch (error) {
       console.error("Error loading order details:", error);
       toast({
@@ -132,24 +87,18 @@ const Orders = () => {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  const updateOrderStatus = (orderId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus })
-        .eq("id", orderId);
+      saveOrderStatus(orderId, newStatus);
 
-      if (error) throw error;
-
-      setOrders(prev => 
-        prev.map(order => 
+      setOrders((prev) =>
+        prev.map((order) =>
           order.id === orderId ? { ...order, status: newStatus } : order
         )
       );
 
-      // Update selected order if it's the same one
       if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
       }
 
       toast({
@@ -230,7 +179,7 @@ const Orders = () => {
                       {getStatusIcon(order.status)}
                       {order.status}
                     </Badge>
-                    <span className="font-bold">₱{order.total.toFixed(2)}</span>
+                    <span className="font-bold">{format(order.total)}</span>
                   </div>
                 </div>
               </CardHeader>
@@ -348,11 +297,11 @@ const Orders = () => {
                                     <div className="flex-1">
                                       <p className="font-medium">{item.product_name || `Product ID: ${item.product_id}`}</p>
                                       <p className="text-sm text-muted-foreground">
-                                        {item.quantity} x ₱{item.unit_price.toFixed(2)}
+                                        {item.quantity} x {format(item.unit_price)}
                                       </p>
                                     </div>
                                     <div className="text-right">
-                                      <p className="font-medium">₱{item.total_price.toFixed(2)}</p>
+                                      <p className="font-medium">{format(item.total_price)}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -370,7 +319,7 @@ const Orders = () => {
                               <DollarSign className="h-4 w-4 text-muted-foreground" />
                               <span className="font-semibold">Total Amount</span>
                             </div>
-                            <span className="text-xl font-bold">₱{selectedOrder.total.toFixed(2)}</span>
+                            <span className="text-xl font-bold">{format(selectedOrder.total)}</span>
                           </div>
 
                           {/* Action Buttons */}

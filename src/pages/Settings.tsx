@@ -5,20 +5,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "@/hooks/use-toast";
+import { CURRENCIES, formatMoney } from "@/lib/currency";
 import { Settings as SettingsIcon, User, Shield, Bell, Store } from "lucide-react";
 
 const Settings = () => {
   const { profile } = useAuth();
+  const { settings, updateSettings, currencySymbol } = useSettings();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState({
     lowStock: true,
     newOrders: true,
     dailyReports: false,
   });
+  const [storeName, setStoreName] = useState(settings.store_name);
+  const [address, setAddress] = useState(settings.address);
+  const [taxRate, setTaxRate] = useState(String(settings.tax_rate));
+  const [currency, setCurrency] = useState(settings.currency);
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
       title: "Profile updated",
@@ -26,22 +34,47 @@ const Settings = () => {
     });
   };
 
+  const handleStoreSettingsSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedTax = parseFloat(taxRate);
+    if (Number.isNaN(parsedTax) || parsedTax < 0) {
+      toast({
+        title: "Invalid tax rate",
+        description: "Please enter a valid tax rate.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateSettings({
+      store_name: storeName.trim() || "The Kaye-ffeine Spot",
+      address: address.trim(),
+      tax_rate: parsedTax,
+      currency,
+    });
+
+    toast({
+      title: "Store settings saved",
+      description: `Currency set to ${currency}. Prices will update across the app.`,
+    });
+  };
+
   const handleNotificationChange = (key: keyof typeof notifications, value: boolean) => {
-    setNotifications(prev => ({ ...prev, [key]: value }));
+    setNotifications((prev) => ({ ...prev, [key]: value }));
     toast({
       title: "Settings updated",
       description: `${key} notifications ${value ? "enabled" : "disabled"}.`,
     });
   };
 
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== "admin") {
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your account preferences</p>
         </div>
-        
+
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
@@ -65,7 +98,6 @@ const Settings = () => {
       </div>
 
       <div className="grid gap-6">
-        {/* Profile Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -106,7 +138,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Store Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -114,43 +145,68 @@ const Settings = () => {
               Store Settings
             </CardTitle>
             <CardDescription>
-              Configure your coffee shop settings
+              Configure your coffee shop settings, including currency
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent>
+            <form onSubmit={handleStoreSettingsSave} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="storeName">Store Name</Label>
+                  <Input
+                    id="storeName"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    placeholder="Enter store name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Input
+                    id="taxRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    placeholder="8.00"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="storeName">Store Name</Label>
+                <Label htmlFor="currency">Currency</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger id="currency">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((option) => (
+                      <SelectItem key={option.code} value={option.code}>
+                        {option.symbol} {option.code} — {option.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Preview: {formatMoney(150, currency)}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Store Address</Label>
                 <Input
-                  id="storeName"
-                  defaultValue="The Kaye-ffeine Spot"
-                  placeholder="Enter store name"
+                  id="address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Enter store address"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="taxRate">Tax Rate (%)</Label>
-                <Input
-                  id="taxRate"
-                  type="number"
-                  step="0.01"
-                  defaultValue="8.00"
-                  placeholder="8.00"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Store Address</Label>
-              <Input
-                id="address"
-                defaultValue="123 Coffee Street, Brew City"
-                placeholder="Enter store address"
-              />
-            </div>
-            <Button>Update Store Settings</Button>
+              <Button type="submit">Update Store Settings</Button>
+            </form>
           </CardContent>
         </Card>
 
-        {/* Notification Settings */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -171,12 +227,12 @@ const Settings = () => {
               </div>
               <Switch
                 checked={notifications.lowStock}
-                onCheckedChange={(value) => handleNotificationChange('lowStock', value)}
+                onCheckedChange={(value) => handleNotificationChange("lowStock", value)}
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label>New Order Notifications</Label>
@@ -186,12 +242,12 @@ const Settings = () => {
               </div>
               <Switch
                 checked={notifications.newOrders}
-                onCheckedChange={(value) => handleNotificationChange('newOrders', value)}
+                onCheckedChange={(value) => handleNotificationChange("newOrders", value)}
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label>Daily Sales Reports</Label>
@@ -201,13 +257,12 @@ const Settings = () => {
               </div>
               <Switch
                 checked={notifications.dailyReports}
-                onCheckedChange={(value) => handleNotificationChange('dailyReports', value)}
+                onCheckedChange={(value) => handleNotificationChange("dailyReports", value)}
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* System Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -225,16 +280,18 @@ const Settings = () => {
                 <span className="ml-2 text-muted-foreground">v2.1.0</span>
               </div>
               <div>
-                <span className="font-medium">Last Backup:</span>
-                <span className="ml-2 text-muted-foreground">Today, 3:00 AM</span>
+                <span className="font-medium">Currency:</span>
+                <span className="ml-2 text-muted-foreground">
+                  {settings.currency} ({currencySymbol})
+                </span>
               </div>
               <div>
-                <span className="font-medium">Database:</span>
-                <span className="ml-2 text-muted-foreground">Connected</span>
+                <span className="font-medium">Storage:</span>
+                <span className="ml-2 text-muted-foreground">Local Storage</span>
               </div>
               <div>
-                <span className="font-medium">Storage Used:</span>
-                <span className="ml-2 text-muted-foreground">45.2 MB</span>
+                <span className="font-medium">Data:</span>
+                <span className="ml-2 text-muted-foreground">Saved in this browser</span>
               </div>
             </div>
           </CardContent>
