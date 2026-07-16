@@ -193,7 +193,7 @@ const Auth = () => {
             Default admin: admin@kaye.com / admin123
           </p>
           <p className="text-xs text-[#c4a574]/60">
-            All data is stored locally in this browser.
+            For demo purposes, all data is stored locally.
           </p>
         </CardFooter>
       </Card>

@@ -32,7 +32,6 @@ export const CategoryTabs = ({ categories, activeCategory, onCategoryChange }: C
           onClick={() => onCategoryChange(category.id)}
           className="text-xs"
         >
-          {category.icon && <span className="mr-1">{category.icon}</span>}
           {category.name}
         </Button>
       ))}

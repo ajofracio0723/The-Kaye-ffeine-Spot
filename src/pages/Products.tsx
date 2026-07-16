@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { createProduct, getCategories, getProducts, updateProduct } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/useSettings";
-import { Plus, Edit, ImagePlus, X, Trash2 } from "lucide-react";
+import { Plus, Edit, ImagePlus, X, Trash2, LayoutGrid, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,8 +38,12 @@ const Products = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [processingImage, setProcessingImage] = useState(false);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
   const { format, currencySymbol } = useSettings();
+
+  const getCategoryName = (categoryId?: string) =>
+    categories.find((c) => c.id === categoryId)?.name || "Uncategorized";
 
   useEffect(() => {
     loadData();
@@ -270,15 +274,39 @@ const Products = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold">Products</h1>
           <p className="text-muted-foreground">Manage your menu items</p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md border p-0.5 bg-muted/40">
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              className="h-8 px-2.5"
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="h-8 px-2.5"
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {isDialogOpen && (
@@ -433,6 +461,77 @@ const Products = () => {
         </div>
       )}
 
+      {products.length === 0 ? (
+        <div className="text-center py-12">
+          <ImagePlus className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">No products yet</h3>
+          <p className="text-gray-500 mb-4">Start by adding your first menu item</p>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Your First Product
+          </Button>
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="rounded-lg border overflow-hidden">
+          <div className="hidden sm:grid grid-cols-[72px_1fr_120px_100px_110px_90px] gap-3 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground">
+            <span>Image</span>
+            <span>Product</span>
+            <span>Category</span>
+            <span>Price</span>
+            <span>Status</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y">
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="grid grid-cols-[72px_1fr_auto] sm:grid-cols-[72px_1fr_120px_100px_110px_90px] gap-3 items-center px-4 py-3 hover:bg-muted/30"
+              >
+                <div className="h-14 w-14 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{product.name}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {product.description || "No description"}
+                  </p>
+                  <p className="sm:hidden text-sm font-semibold text-primary mt-1">
+                    {format(product.price)}
+                  </p>
+                </div>
+                <span className="hidden sm:block text-sm text-muted-foreground truncate">
+                  {getCategoryName(product.category_id)}
+                </span>
+                <span className="hidden sm:block font-semibold text-primary">
+                  {format(product.price)}
+                </span>
+                <div className="hidden sm:flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${product.is_available ? "bg-green-500" : "bg-red-500"}`} />
+                  <span className="text-sm text-muted-foreground">
+                    {product.is_available ? "Available" : "Unavailable"}
+                  </span>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" variant="outline" onClick={() => openEditDialog(product)}>
+                    <Edit className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {products.map((product) => (
           <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -443,7 +542,6 @@ const Products = () => {
                   alt={product.name}
                   className="w-full h-full object-cover transition-transform hover:scale-105"
                   onError={(e) => {
-                    // Handle broken images
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
                   }}
@@ -498,19 +596,8 @@ const Products = () => {
             </CardContent>
           </Card>
         ))}
-        
-        {products.length === 0 && (
-          <div className="col-span-full text-center py-12">
-            <ImagePlus className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">No products yet</h3>
-            <p className="text-gray-500 mb-4">Start by adding your first menu item</p>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Product
-            </Button>
-          </div>
-        )}
       </div>
+      )}
     </div>
   );
 };
